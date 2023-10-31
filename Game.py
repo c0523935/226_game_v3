@@ -5,6 +5,7 @@ from Board import Board, Direction
 from View import display, display_scores
 from threading import Semaphore, Thread
 import struct
+from asyncio import run, start_server, StreamReader, StreamWriter
 
 class Game:
     def __init__(self):
@@ -38,6 +39,8 @@ class Game:
         self.PLAYER2 = 0b1000
 
         self.quitting = False
+
+        # self.connexions_counter = 0
 
     def place_player(self, name: str) -> None:
         """
@@ -127,56 +130,84 @@ class Game:
         # return the score and the board
         return self.generate_score_list() + str(self.board).encode()
 
-    def call_server(self, sc: socket, connection_number: int):
+    async def call_server(self, reader: StreamReader, writer: StreamWriter, connection_number: int):
+        """
+        This async function handles communication with a client.
 
-        with sc:
+        :param reader: An instance of StreamReader for reading data from the client.
+        :param writer: An instance of StreamWriter for writing data to the client.
+        :param connection_number: An integer indicating the connection number.
+        :return: None
+        """
+
+        try: # with sc:
+
             while True:
-                data = sc.recv(self.BUF_SIZE)
+                data = await reader.read(self.BUF_SIZE)  # data= sc.recv(self.BUF_SIZE)
                 print(data, list(data))
                 if not data:
                     break
-                print(f'Client {connection_number}: {sc.getpeername()} Data: {data.hex()}')
-                # result gets the score and the board
+                print(f'Client {connection_number}: {writer.get_extra_info("peername")} Data: {data.hex()}')
                 result = self.implement_command(int.from_bytes(data, byteorder='big'))
                 if result != b'':
                     print(result, list(result))
                     size = len(result)
                     size_data = struct.pack('!h', size)
                     # sending the size
-                    sc.sendall(size_data)
+                    writer.write(size_data)
                     # sending score and board
-                    sc.sendall(result)
+                    writer.write(result)
+                    await writer.drain()
+        except ConnectionResetError:
+            pass
+        finally:
+            writer.close()
 
-    def start(self) -> None:
+    async def handle_client(self, reader: StreamReader, writer: StreamWriter):
         """
-        Start the server and process incoming connections.
+        This async function manages the connection with a client.
+
+        :param reader: An instance of StreamReader for reading data from the client.
+        :param writer: An instance of StreamWriter for writing data to the client.
+        :return: None
         """
-        with socket(AF_INET, SOCK_STREAM) as sock:
-            sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
-            sock.bind((self.HOST, self.PORT))
-            sock.listen(self.QUEUE_SIZE)
-            print('Server:', sock.getsockname())
-
-            connexions_counter = 0
-            while connexions_counter <= 2:  # only 2 connections
-                sc, _ = sock.accept()
-                connexions_counter = connexions_counter + 1
-                size_data = struct.pack('!H', 1)
-                # sending the size
-                sc.sendall(size_data)
-                byte_value = connexions_counter.to_bytes((connexions_counter.bit_length() + 7) // 8, byteorder='big')
-                # sending the player ID
-                sc.sendall(byte_value)
-                Thread(target=self.call_server, args=(sc, connexions_counter)).start()
-
-            print("Only allow 2 connections, closing the client")
+        # Handle the connection with the client
+        self.connexions_counter += 1
+        size_data = struct.pack('!H', 1)
+        # send the size
+        writer.write(size_data)
+        byte_value = self.connexions_counter.to_bytes((self.connexions_counter.bit_length() + 7) // 8, byteorder='big')
+        # send the player ID
+        writer.write(byte_value)
+        await self.call_server(reader, writer, self.connexions_counter)
 
 
+    async def start(self):
+        """
+        This async function initializes the server and begins listening for client connections.
+
+        :return: None
+        """
+        self.connexions_counter = 0
+
+        server = await start_server(
+            lambda r, w: self.handle_client(r, w),
+            self.HOST, self.PORT
+        )
+        async with server:
+            print(f'Serving on {self.HOST}:{self.PORT}')
+            await server.serve_forever()
 
 
+    # Use asyncio tu run the server
+async def run_server():
+    """
+    This async function initializes and starts the game server.
 
+    :return: None
+    """
+    game = Game()
+    await game.start()
 
-
-
-
+run(run_server())
 

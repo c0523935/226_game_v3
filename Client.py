@@ -45,6 +45,11 @@ class Client:
             # showing the player ID
             print('Player: ', player)
 
+            # Check if player is more than 2, then close the connection
+            player_id = int.from_bytes(player, byteorder='big')
+            if player_id >= 3:
+                print("Player ID exceeds the limit. Closing the connection.")
+                return
             while True:
                 # dictionary of possible movements
                 movements_1 = {'U': 0x24, 'D': 0x34, 'R': 0x64, 'L': 0x44, 'Q': 0x84}
