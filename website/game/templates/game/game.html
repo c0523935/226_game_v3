@@ -1,0 +1,26 @@
+<!-- templates/game.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Game Board</title>
+</head>
+<body>
+    <div style="text-align: center; margin: 20px;">
+        {{ board_to_print|safe }}
+        <!--{{ direction_buttons_html|safe }}-->
+        <!-- Botones de dirección -->
+        <div style="text-align: center; margin: 20px;">
+
+            <button onclick="location.href='{% url 'move_player' player_id=player_id direction='up' %}'" style="margin: 10px;">↑</button><br>
+            <button onclick="location.href='{% url 'move_player' player_id=player_id direction='left' %}'" style="margin: 10px;">←</button>
+            <span style="display: inline-block; width: 20px; text-align: center;">{{ player_id }}</span>
+            <button onclick="location.href='{% url 'move_player' player_id=player_id direction='right' %}'" style="margin: 10px;">→</button><br>
+            <button onclick="location.href='{% url 'move_player' player_id=player_id direction='down' %}'" style="margin: 10px;">↓</button>
+        </div>
+
+        {{ score_html|safe }}
+    </div>
+</body>
+</html>
+

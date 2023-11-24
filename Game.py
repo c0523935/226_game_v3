@@ -162,6 +162,7 @@ class Game:
             pass
         finally:
             writer.close()
+            await writer.wait_closed()
 
     async def handle_client(self, reader: StreamReader, writer: StreamWriter):
         """
@@ -179,6 +180,7 @@ class Game:
         byte_value = self.connexions_counter.to_bytes((self.connexions_counter.bit_length() + 7) // 8, byteorder='big')
         # send the player ID
         writer.write(byte_value)
+        await writer.drain()
         await self.call_server(reader, writer, self.connexions_counter)
 
 
